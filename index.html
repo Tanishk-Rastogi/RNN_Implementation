@@ -3,14 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SimpleRNN Sentiment Visualizer</title>
-    <meta name="description" content="Interactive SimpleRNN Sentiment Analysis and Timestep Hidden State Visualizer connected to Render FastAPI backend.">
+    <title>Sentiment Analysis Visualizer</title>
+    <meta name="description" content="Interactive Sentiment Analysis web app connected to Render FastAPI backend.">
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
-    <!-- Chart.js for visualization -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -22,10 +20,10 @@
         <header class="app-header">
             <div class="logo-badge">
                 <span class="pulse-dot"></span>
-                <span>SimpleRNN Deep Learning</span>
+                <span>Deep Learning Model</span>
             </div>
-            <h1 class="main-title">Sentiment Analysis & Hidden State Visualizer</h1>
-            <p class="subtitle">Real-time sequence classification & step-by-step RNN hidden neuron activation mapping</p>
+            <h1 class="main-title">Sentiment Analysis</h1>
+            <p class="subtitle">Real-time text sequence classification & probability distribution analysis</p>
         </header>
 
         <!-- Main Card -->
@@ -125,33 +123,11 @@
                     </div>
                 </div>
             </div>
-
-            <!-- RNN Hidden State Heatmap -->
-            <div class="heatmap-card glass-panel">
-                <div class="card-header-flex">
-                    <div>
-                        <h3 class="card-title">🌊 SimpleRNN Hidden State Heatmap</h3>
-                        <p class="card-subtext">Activation values ($[-1, 1]$) for all 16 hidden neurons across input timesteps ($t_1, t_2, \dots, t_N$)</p>
-                    </div>
-                </div>
-                
-                <div class="heatmap-wrapper">
-                    <div id="heatmap-grid" class="heatmap-grid">
-                        <!-- Grid rendered dynamically -->
-                    </div>
-                </div>
-
-                <div class="heatmap-legend">
-                    <span>Negative (-1.0)</span>
-                    <div class="legend-gradient"></div>
-                    <span>Positive (+1.0)</span>
-                </div>
-            </div>
         </section>
 
         <!-- Footer -->
         <footer class="app-footer">
-            <p>Powered by TensorFlow SimpleRNN • FastAPI on Render • Vercel Frontend</p>
+            <p>Powered by TensorFlow LSTM • FastAPI on Render • Vercel Frontend</p>
         </footer>
     </div>
 

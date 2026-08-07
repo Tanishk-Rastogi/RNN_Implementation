@@ -52,7 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Analyze Sentiment Function
     async function analyzeSentiment() {
-        const text = textInput.value.strip ? textInput.value.strip() : textInput.value.trim();
+        const text = textInput.value.trim();
         if (!text) return;
 
         const baseUrl = backendUrlInput.value.trim().replace(/\/$/, "");
@@ -137,63 +137,5 @@ document.addEventListener("DOMContentLoaded", () => {
                 chipsContainer.appendChild(chip);
             }
         });
-
-        // Render Heatmap Matrix
-        renderHeatmap(data.timestep_details);
-    }
-
-    // Render RNN Timestep Heatmap Matrix
-    function renderHeatmap(timestepDetails) {
-        const grid = document.getElementById("heatmap-grid");
-        grid.innerHTML = "";
-
-        const validSteps = timestepDetails.filter(item => item.word !== "<PAD>");
-
-        validSteps.forEach(item => {
-            const row = document.createElement("div");
-            row.className = "heatmap-row";
-
-            const label = document.createElement("div");
-            label.className = "word-label";
-            label.textContent = `t${item.timestep}: ${item.word}`;
-            row.appendChild(label);
-
-            const cellsFlex = document.createElement("div");
-            cellsFlex.className = "cells-flex";
-
-            item.hidden_state.forEach((val, idx) => {
-                const cell = document.createElement("div");
-                cell.className = "heatmap-cell";
-                cell.style.backgroundColor = getHeatmapColor(val);
-                cell.title = `Word: "${item.word}" | Neuron ${idx+1}: ${val}`;
-                cell.textContent = (val >= 0 ? "+" : "") + val.toFixed(2);
-                cellsFlex.appendChild(cell);
-            });
-
-            row.appendChild(cellsFlex);
-            grid.appendChild(row);
-        });
-    }
-
-    // Map activation value [-1.0, 1.0] to color gradient
-    function getHeatmapColor(val) {
-        // Clamp val between -1 and 1
-        const v = Math.max(-1, Math.min(1, val));
-        
-        if (v < 0) {
-            // Negative: Indigo to Teal (-1 -> 0)
-            const ratio = Math.abs(v);
-            const r = Math.round(49 * (1 - ratio) + 99 * ratio);
-            const g = Math.round(46 * (1 - ratio) + 102 * ratio);
-            const b = Math.round(129 * (1 - ratio) + 241 * ratio);
-            return `rgba(${r}, ${g}, ${b}, 0.85)`;
-        } else {
-            // Positive: Green/Amber to Emerald (0 -> 1)
-            const ratio = v;
-            const r = Math.round(16 * ratio + 49 * (1 - ratio));
-            const g = Math.round(185 * ratio + 102 * (1 - ratio));
-            const b = Math.round(129 * ratio + 129 * (1 - ratio));
-            return `rgba(${r}, ${g}, ${b}, 0.85)`;
-        }
     }
 });

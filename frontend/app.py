@@ -1,12 +1,11 @@
 import streamlit as st
 import requests
 import pandas as pd
-import numpy as np
 import plotly.express as px
 
-# Configure Streamlit Page (No sidebar)
+# Configure Streamlit Page
 st.set_page_config(
-    page_title="RNN Sentiment Analysis & Visualizer",
+    page_title="Sentiment Analysis App",
     page_icon="🧠",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -73,8 +72,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # App Header
-st.markdown('<div class="main-title">🧠 SimpleRNN Sentiment Analysis & Hidden State Visualizer</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Interactive sequence analysis & step-by-step RNN neuron activation visualization</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">🧠 Sentiment Analysis</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Real-time text sequence classification & probability distribution analysis</div>', unsafe_allow_html=True)
 
 # Preset sample sentences
 st.markdown("##### Quick Test Samples:")
@@ -98,7 +97,7 @@ user_input = st.text_area(
 analyze_btn = st.button("🚀 Analyze Sentiment", type="primary", use_container_width=True)
 
 if analyze_btn and user_input:
-    with st.spinner("Processing sequence through SimpleRNN..."):
+    with st.spinner("Processing sequence..."):
         try:
             response = requests.post(
                 f"{BACKEND_URL}/predict",
@@ -146,7 +145,7 @@ if analyze_btn and user_input:
                     st.plotly_chart(fig_probs, use_container_width=True)
                 
                 with col2:
-                    st.markdown("### 🔤 Tokenized Sequence Breakdown")
+                    st.markdown("### 🔤 Sequence Tokenization")
                     tokens = [t for t in data["tokens"] if t != "<PAD>"]
                     st.write(f"**Non-Padded Word Count:** `{len(tokens)}`")
                     st.write(f"**Tokens:** `{ ' → '.join(tokens) }`")
@@ -155,38 +154,6 @@ if analyze_btn and user_input:
                     token_df = pd.DataFrame(data["timestep_details"])
                     non_pad_df = token_df[token_df["word"] != "<PAD>"][["timestep", "word", "token_id"]]
                     st.dataframe(non_pad_df, use_container_width=True, hide_index=True)
-                
-                # Section: RNN Hidden State Visualization
-                st.divider()
-                st.markdown("### 🌊 SimpleRNN Hidden State Heatmap per Timestep")
-                st.caption("Inspect how the internal hidden neurons update as each word is processed sequentially by the RNN.")
-                
-                timestep_data = data["timestep_details"]
-                non_pad_timesteps = [item for item in timestep_data if item["word"] != "<PAD>"]
-                
-                if non_pad_timesteps:
-                    words = [f"t{item['timestep']}: {item['word']}" for item in non_pad_timesteps]
-                    matrix = np.array([item["hidden_state"] for item in non_pad_timesteps])
-                    
-                    fig_heatmap = px.imshow(
-                        matrix,
-                        x=[f"Neuron {i+1}" for i in range(matrix.shape[1])],
-                        y=words,
-                        color_continuous_scale="Viridis",
-                        labels=dict(x="RNN Hidden Neurons", y="Timesteps (Words)", color="Activation Value"),
-                        title="RNN Hidden Neuron Activations Across Words",
-                        aspect="auto"
-                    )
-                    fig_heatmap.update_layout(height=400)
-                    st.plotly_chart(fig_heatmap, use_container_width=True)
-                    
-                    with st.expander("🔍 View Raw Hidden State Numerical Values"):
-                        h_df = pd.DataFrame(
-                            matrix,
-                            index=words,
-                            columns=[f"Neuron {i+1}" for i in range(matrix.shape[1])]
-                        )
-                        st.dataframe(h_df, use_container_width=True)
             
             else:
                 st.error(f"Backend returned error {response.status_code}: {response.json().get('detail')}")
