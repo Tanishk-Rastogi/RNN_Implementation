@@ -1,15 +1,23 @@
+import os
 import pickle
+import urllib.request
+import zipfile
 import numpy as np
 import pandas as pd
 import tensorflow as tf
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input, Embedding, SimpleRNN, Dense
+from tensorflow.keras.layers import Input, Embedding, LSTM, Dense, Dropout
 
 def train_and_export():
     print("Loading dataset...")
-    df = pd.read_csv("sentiment_analysis.csv")
+    csv_path = "sentiment_analysis.csv"
+    if not os.path.exists(csv_path):
+        url = "https://raw.githubusercontent.com/Tanishk-Rastogi/Sentiment-Analysis-using-RNN/main/sentiment_analysis.csv"
+        df = pd.read_csv(url)
+    else:
+        df = pd.read_csv(csv_path)
     
     # Preprocess
     df = df.dropna(subset=['text', 'sentiment']).copy()
@@ -26,37 +34,43 @@ def train_and_export():
     print(df['sentiment'].value_counts())
     
     # Tokenization & Padding
-    vocab_size = 3000
-    tokenizer = Tokenizer(num_words=vocab_size, oov_token='<OOV>')
+    vocab_size = 5000
+    tokenizer = Tokenizer(num_words=vocab_size, oov_token='<OOV>', lower=True)
     tokenizer.fit_on_texts(df['text'])
     
     sequences = tokenizer.texts_to_sequences(df['text'])
-    maxlen = max(len(seq) for seq in sequences)
-    print(f"Max sequence length: {maxlen}")
+    maxlen = 35
+    print(f"Vocabulary Size: {len(tokenizer.word_index) + 1}")
+    print(f"Max Sequence Length: {maxlen}")
     
     X = pad_sequences(sequences, maxlen=maxlen, padding='post', truncating='post')
     y = df['label'].values
     
-    # Model Architecture
-    embed_dim = 32
-    rnn_units = 16
+    # LSTM Architecture with Dropout for strong generalization
+    embed_dim = 64
+    lstm_units = 32
     num_classes = 3
     
     inp = Input(shape=(maxlen,), dtype="int32", name='input')
     x = Embedding(input_dim=vocab_size, output_dim=embed_dim, mask_zero=True, name='embed')(inp)
-    rnn = SimpleRNN(units=rnn_units, return_sequences=False, return_state=False, name='simple_rnn')(x)
-    out = Dense(num_classes, activation='softmax', name='out')(rnn)
+    x = Dropout(0.2)(x)
+    lstm = LSTM(units=lstm_units, return_sequences=False, return_state=False, name='lstm_layer')(x)
+    x_out = Dropout(0.2)(lstm)
+    out = Dense(num_classes, activation='softmax', name='out')(x_out)
     
     model = Model(inputs=inp, outputs=out)
-    model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+    model.compile(
+        optimizer=tf.keras.optimizers.Adam(learning_rate=0.003),
+        loss='sparse_categorical_crossentropy',
+        metrics=['accuracy']
+    )
     
-    print("Training SimpleRNN model...")
-    model.fit(X, y, epochs=30, batch_size=16, validation_split=0.2, verbose=1)
+    print("Training LSTM model...")
+    model.fit(X, y, epochs=25, batch_size=16, validation_split=0.15, verbose=1)
     
     # Save artifacts
-    model.save("sentiment_rnn.keras")
-    model.save_weights("sentiment_rnn.weights.h5")
-    print("Saved sentiment_rnn.keras & sentiment_rnn.weights.h5")
+    model.save_weights("sentiment_lstm.weights.h5")
+    print("Saved sentiment_lstm.weights.h5")
     
     with open("tokenizer.pkl", "wb") as f:
         pickle.dump(tokenizer, f)
@@ -67,7 +81,7 @@ def train_and_export():
         'inv_label_mapping': {v: k for k, v in label_mapping.items()},
         'maxlen': maxlen,
         'vocab_size': vocab_size,
-        'rnn_units': rnn_units,
+        'lstm_units': lstm_units,
         'embed_dim': embed_dim
     }
     

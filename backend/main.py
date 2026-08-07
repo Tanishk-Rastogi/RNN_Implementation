@@ -11,16 +11,16 @@ from pydantic import BaseModel
 # TensorFlow imports
 import tensorflow as tf
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input, Embedding, SimpleRNN, Dense
+from tensorflow.keras.layers import Input, Embedding, LSTM, SimpleRNN, Dense, Dropout
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 app = FastAPI(
-    title="RNN Sentiment Analysis API",
-    description="FastAPI Backend for SimpleRNN Sentiment Analysis & Hidden State Visualization",
+    title="LSTM Sentiment Analysis API",
+    description="FastAPI Backend for LSTM Sentiment Analysis & Hidden State Visualization",
     version="1.0.0"
 )
 
-# Enable CORS for Streamlit frontend
+# Enable CORS for Streamlit & Vercel frontends
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -42,11 +42,13 @@ LABEL_MAPPING = {'negative': 0, 'neutral': 1, 'positive': 2}
 INV_LABEL_MAPPING = {0: 'negative', 1: 'neutral', 2: 'positive'}
 MAXLEN = 35
 
-def build_model_architecture(vocab_size=3000, embed_dim=32, rnn_units=16, maxlen=35, num_classes=3):
+def build_lstm_model(vocab_size=5000, embed_dim=64, lstm_units=32, maxlen=35, num_classes=3):
     inp = Input(shape=(maxlen,), dtype="int32", name='input')
     x = Embedding(input_dim=vocab_size, output_dim=embed_dim, mask_zero=True, name='embed')(inp)
-    rnn = SimpleRNN(units=rnn_units, return_sequences=False, return_state=False, name='simple_rnn')(x)
-    out = Dense(num_classes, activation='softmax', name='out')(rnn)
+    x = Dropout(0.2)(x)
+    lstm = LSTM(units=lstm_units, return_sequences=False, return_state=False, name='lstm_layer')(x)
+    x_out = Dropout(0.2)(lstm)
+    out = Dense(num_classes, activation='softmax', name='out')(x_out)
     
     m = Model(inputs=inp, outputs=out)
     m.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
@@ -55,18 +57,19 @@ def build_model_architecture(vocab_size=3000, embed_dim=32, rnn_units=16, maxlen
 def load_artifacts():
     global model, tokenizer, config, inspect_model, MAXLEN, INV_LABEL_MAPPING
     
-    weights_path = os.path.join(BASE_DIR, "sentiment_rnn.weights.h5")
+    lstm_weights = os.path.join(BASE_DIR, "sentiment_lstm.weights.h5")
+    rnn_weights = os.path.join(BASE_DIR, "sentiment_rnn.weights.h5")
     tokenizer_path = os.path.join(BASE_DIR, "tokenizer.pkl")
     config_path = os.path.join(BASE_DIR, "config.pkl")
     
-    if os.path.exists(tokenizer_path) and os.path.exists(weights_path):
+    if os.path.exists(tokenizer_path):
         try:
             with open(tokenizer_path, "rb") as f:
                 tokenizer = pickle.load(f)
             
-            vocab_size = 3000
-            embed_dim = 32
-            rnn_units = 16
+            vocab_size = 5000
+            embed_dim = 64
+            lstm_units = 32
             
             if os.path.exists(config_path):
                 with open(config_path, "rb") as f:
@@ -74,32 +77,48 @@ def load_artifacts():
                 MAXLEN = config.get("maxlen", MAXLEN)
                 vocab_size = config.get("vocab_size", vocab_size)
                 embed_dim = config.get("embed_dim", embed_dim)
-                rnn_units = config.get("rnn_units", rnn_units)
+                lstm_units = config.get("lstm_units", config.get("rnn_units", lstm_units))
                 inv_map = config.get("inv_label_mapping", {})
                 if inv_map:
                     INV_LABEL_MAPPING = inv_map
             
-            # Re-build model architecture & load weights
-            model = build_model_architecture(
+            # Build LSTM architecture
+            model = build_lstm_model(
                 vocab_size=vocab_size,
                 embed_dim=embed_dim,
-                rnn_units=rnn_units,
+                lstm_units=lstm_units,
                 maxlen=MAXLEN,
                 num_classes=len(INV_LABEL_MAPPING)
             )
-            model.load_weights(weights_path)
-            print("Successfully loaded model weights from sentiment_rnn.weights.h5")
-
-            # Build sequence inspection model with return_sequences=True
-            rnn_layer = model.get_layer("simple_rnn")
+            
+            if os.path.exists(lstm_weights):
+                model.load_weights(lstm_weights)
+                print("Successfully loaded LSTM weights from sentiment_lstm.weights.h5")
+            elif os.path.exists(rnn_weights):
+                # Fallback to RNN architecture if LSTM weights not generated yet
+                inp = Input(shape=(MAXLEN,), dtype="int32", name='input')
+                x = Embedding(input_dim=vocab_size, output_dim=32, mask_zero=True, name='embed')(inp)
+                rnn = SimpleRNN(units=16, return_sequences=False, name='simple_rnn')(x)
+                out = Dense(len(INV_LABEL_MAPPING), activation='softmax', name='out')(rnn)
+                model = Model(inputs=inp, outputs=out)
+                model.load_weights(rnn_weights)
+                print("Loaded SimpleRNN fallback weights.")
+                
+            # Build inspection model with return_sequences=True
             seq_inp = Input(shape=(MAXLEN,), dtype="int32", name="seq_inp")
             seq_emb = model.get_layer("embed")(seq_inp)
-            rnn_seq = SimpleRNN(units=rnn_units, return_sequences=True, name="rnn_seq")
-            seq_hidden = rnn_seq(seq_emb)
             
-            rnn_seq.set_weights(rnn_layer.get_weights())
+            if "lstm_layer" in [l.name for l in model.layers]:
+                inspect_layer = LSTM(units=lstm_units, return_sequences=True, name="inspect_layer")
+                seq_hidden = inspect_layer(seq_emb)
+                inspect_layer.set_weights(model.get_layer("lstm_layer").get_weights())
+            else:
+                inspect_layer = SimpleRNN(units=16, return_sequences=True, name="inspect_layer")
+                seq_hidden = inspect_layer(seq_emb)
+                inspect_layer.set_weights(model.get_layer("simple_rnn").get_weights())
+                
             inspect_model = Model(inputs=seq_inp, outputs=seq_hidden)
-            print("Successfully initialized hidden state inspection model!")
+            print("Successfully initialized sequence inspection model!")
             
         except Exception as e:
             print(f"Error loading artifacts: {e}")
@@ -132,7 +151,7 @@ class SentimentResponse(BaseModel):
 @app.get("/")
 def root():
     return {
-        "message": "RNN Sentiment Analysis API is running",
+        "message": "LSTM Sentiment Analysis API is running",
         "model_loaded": model is not None,
         "base_dir": BASE_DIR,
         "endpoints": ["/health", "/predict", "/dataset/stats"]
@@ -158,7 +177,7 @@ def predict_sentiment(request: SentimentRequest):
     if model is None or tokenizer is None:
         raise HTTPException(
             status_code=503, 
-            detail=f"Model artifacts not loaded. Checked BASE_DIR: {BASE_DIR}. Please ensure tokenizer.pkl and sentiment_rnn.weights.h5 exist."
+            detail=f"Model artifacts not loaded. Checked BASE_DIR: {BASE_DIR}. Please ensure tokenizer.pkl and model weights exist."
         )
     
     text = request.text.strip()
