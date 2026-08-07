@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SimpleRNN Sentiment Visualizer</title>
+    <meta name="description" content="Interactive SimpleRNN Sentiment Analysis and Timestep Hidden State Visualizer connected to Render FastAPI backend.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js for visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="background-glow glow-1"></div>
+    <div class="background-glow glow-2"></div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo-badge">
+                <span class="pulse-dot"></span>
+                <span>SimpleRNN Deep Learning</span>
+            </div>
+            <h1 class="main-title">Sentiment Analysis & Hidden State Visualizer</h1>
+            <p class="subtitle">Real-time sequence classification & step-by-step RNN hidden neuron activation mapping</p>
+        </header>
+
+        <!-- Main Card -->
+        <main class="main-card glass-panel">
+            <!-- Sample Presets -->
+            <div class="preset-section">
+                <label class="section-label">⚡ Quick Presets</label>
+                <div class="preset-buttons">
+                    <button id="preset-pos" class="preset-btn pos-btn">😊 Positive Sample</button>
+                    <button id="preset-neg" class="preset-btn neg-btn">😡 Negative Sample</button>
+                    <button id="preset-neu" class="preset-btn neu-btn">😐 Neutral Sample</button>
+                    <button id="preset-cpx" class="preset-btn cpx-btn">✨ Complex Sample</button>
+                </div>
+            </div>
+
+            <!-- Input Form -->
+            <div class="input-section">
+                <label for="text-input" class="section-label">Input Text Sequence</label>
+                <textarea id="text-input" placeholder="Type a sentence to analyze sentiment..." rows="3">What an amazing product, I absolutely love it!</textarea>
+                <button id="analyze-btn" class="primary-btn">
+                    <span class="btn-text">🚀 Analyze Sentiment</span>
+                    <span class="spinner hidden" id="spinner"></span>
+                </button>
+            </div>
+
+            <!-- Backend Config Option -->
+            <div class="backend-config">
+                <span class="config-label">API Endpoint:</span>
+                <input type="text" id="backend-url" value="https://sentiment-analysis-using-rnn.onrender.com" placeholder="Backend API URL">
+                <span id="api-status-badge" class="status-tag status-unknown">Checking API...</span>
+            </div>
+        </main>
+
+        <!-- Results Display Container -->
+        <section id="results-container" class="results-container hidden">
+            <!-- Prediction & Probability Section -->
+            <div class="grid-2col">
+                <!-- Result Badge & Metrics -->
+                <div class="result-card glass-panel">
+                    <h3 class="card-title">🎯 Prediction Result</h3>
+                    <div id="sentiment-badge" class="sentiment-badge badge-positive">
+                        <span id="badge-icon">😊</span>
+                        <span id="badge-label">POSITIVE</span>
+                        <span id="badge-confidence" class="confidence-tag">99.8%</span>
+                    </div>
+
+                    <div class="probability-bars-container">
+                        <h4 class="subcard-title">Class Probabilities</h4>
+                        
+                        <div class="prob-item">
+                            <div class="prob-header">
+                                <span>Positive</span>
+                                <span id="prob-val-positive">0%</span>
+                            </div>
+                            <div class="progress-bar-track">
+                                <div id="prob-bar-positive" class="progress-bar-fill fill-positive" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <div class="prob-item">
+                            <div class="prob-header">
+                                <span>Neutral</span>
+                                <span id="prob-val-neutral">0%</span>
+                            </div>
+                            <div class="progress-bar-track">
+                                <div id="prob-bar-neutral" class="progress-bar-fill fill-neutral" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <div class="prob-item">
+                            <div class="prob-header">
+                                <span>Negative</span>
+                                <span id="prob-val-negative">0%</span>
+                            </div>
+                            <div class="progress-bar-track">
+                                <div id="prob-bar-negative" class="progress-bar-fill fill-negative" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Token Breakdown -->
+                <div class="result-card glass-panel">
+                    <h3 class="card-title">🔤 Sequence Tokenization</h3>
+                    <div class="token-summary">
+                        <div class="metric-box">
+                            <span class="metric-val" id="token-count">0</span>
+                            <span class="metric-label">Words</span>
+                        </div>
+                        <div class="metric-box">
+                            <span class="metric-val" id="pad-count">0</span>
+                            <span class="metric-label">Padding Tokens</span>
+                        </div>
+                    </div>
+                    <div class="token-chips" id="token-chips">
+                        <!-- Chips rendered dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- RNN Hidden State Heatmap -->
+            <div class="heatmap-card glass-panel">
+                <div class="card-header-flex">
+                    <div>
+                        <h3 class="card-title">🌊 SimpleRNN Hidden State Heatmap</h3>
+                        <p class="card-subtext">Activation values ($[-1, 1]$) for all 16 hidden neurons across input timesteps ($t_1, t_2, \dots, t_N$)</p>
+                    </div>
+                </div>
+                
+                <div class="heatmap-wrapper">
+                    <div id="heatmap-grid" class="heatmap-grid">
+                        <!-- Grid rendered dynamically -->
+                    </div>
+                </div>
+
+                <div class="heatmap-legend">
+                    <span>Negative (-1.0)</span>
+                    <div class="legend-gradient"></div>
+                    <span>Positive (+1.0)</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>Powered by TensorFlow SimpleRNN • FastAPI on Render • Vercel Frontend</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
